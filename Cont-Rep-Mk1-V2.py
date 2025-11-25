@@ -9,7 +9,7 @@ from google.genai.errors import APIError
 # --- Configuration ---
 GEMINI_MODEL = 'gemini-2.5-flash-preview-09-2025'
 
-# Initialize API Client secureley
+# Initialize API Client securely
 try:
     # Try getting key from Streamlit secrets first, then os environment
     if "GEMINI_API_KEY" in st.secrets:
@@ -110,7 +110,11 @@ st.markdown(
 # --- Logic Functions ---
 
 def create_system_instruction(data):
+    """Generates the multi-phase system instruction for the Gemini model."""
     platforms_str = ', '.join(data['platforms'])
+    
+    # NOTE: This function now just returns the system text. It is passed 
+    # as a special type in the repurpose_content function.
     return f"""
         You are the RizenAi Content Repurposing System Orchestrator. 
         User Profile: Name: {data['name']}, Profession: {data['profession']}, Objective: {data['objective']}, Tone: {data['tone']}
@@ -144,16 +148,22 @@ def repurpose_content(data):
     if not client:
         return None
     
-    system_instruction = create_system_instruction(data)
+    system_instruction_text = create_system_instruction(data)
     generation_config = get_generation_config(data['platforms'])
-    user_query = f"Repurpose this content: {data['original_content']}"
+    user_query = f"Repurpose the Original Content for the user, following the system instructions and JSON format."
+    
+    # FIX: system_instruction is passed as a type.Part in the contents list.
+    contents = [
+        types.Part.from_text(system_instruction_text),
+        types.Part.from_text(user_query)
+    ]
     
     try:
         response = client.models.generate_content(
             model=GEMINI_MODEL,
-            contents=user_query,
-            config=generation_config,
-            system_instruction=system_instruction
+            contents=contents, # The system instruction is now inside here
+            config=generation_config
+            # Removed the problematic system_instruction=... keyword argument
         )
         return json.loads(response.text)
     except Exception as e:
