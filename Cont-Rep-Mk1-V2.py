@@ -76,22 +76,22 @@ st.markdown(
     /* 5. Custom Button Styling (Larger, Aqua Gradient, Glow) */
     .stButton > button {
         width: 100%;
-        background: linear-gradient(145deg, #00BFFF, #00FFFF); /* Aqua to Cyan */
+        background: linear-gradient(145deg, #00BFFF, #00FFFF); /* Neon Aqua Gradient */
         color: #00243B !important;
         font-weight: 700 !important;
-        font-size: 1.3rem !important; /* Larger Text */
-        padding: 1rem !important;      /* Larger Button */
+        font-size: 1.4rem !important; /* Bigger Font */
+        padding: 1.25rem !important;      /* Broader/Taller Button */
         border: none;
         border-radius: 0.5rem;
         transition: all 0.3s ease;
-        margin-top: 1rem;
+        margin-top: 1.5rem; /* Added spacing */
     }
     
     .stButton > button:hover {
-        box-shadow: 0 0 25px #00FFFF; /* Stronger Glow on Hover */
-        transform: scale(1.02);
+        box-shadow: 0 0 20px #00FFFF; /* Slight Glow on Hover */
+        transform: scale(1.01);
         color: #00243B !important;
-        border: 1px solid white;
+        border: 1px solid rgba(255, 255, 255, 0.5);
     }
 
     /* 6. Output Card Styling */
@@ -187,7 +187,8 @@ with st.form("repurpose_form"):
     original_content = st.text_area("Original Content (up to 200 words)", height=150)
     extra_info = st.text_input("Extra Info (CTA, Keywords)")
 
-    submitted = st.form_submit_button("🚀 Plug & Play: Repurpose Content Now")
+    # Button text change applied here
+    submitted = st.form_submit_button("Plug & Play : Repurpose your content now")
 
 if submitted:
     if not user_name or not original_content:
