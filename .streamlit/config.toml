@@ -1,0 +1,15 @@
+[theme]
+# Midnight Blue Background
+backgroundColor = "#00243B"
+
+# A slightly lighter dark for contrast elements (e.g., sidebar, text input box background)
+secondaryBackgroundColor = "#003657"
+
+# Aqua/Cyan Primary Color (Used for buttons, sliders, links)
+primaryColor = "#00FFFF"
+
+# White text for contrast on the dark background
+textColor = "#FFFFFF"
+
+# Font (Custom font will be set via CSS in app.py)
+font = "sans serif"
