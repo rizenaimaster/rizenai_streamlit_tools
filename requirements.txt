@@ -1,3 +1,5 @@
 streamlit
 google-genai
 streamlit-lottie
+openai
+anthropic
