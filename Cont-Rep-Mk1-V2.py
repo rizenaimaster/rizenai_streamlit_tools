@@ -113,8 +113,6 @@ def create_system_instruction(data):
     """Generates the multi-phase system instruction for the Gemini model."""
     platforms_str = ', '.join(data['platforms'])
     
-    # NOTE: This function now just returns the system text. It is passed 
-    # as a special type in the repurpose_content function.
     return f"""
         You are the RizenAi Content Repurposing System Orchestrator. 
         User Profile: Name: {data['name']}, Profession: {data['profession']}, Objective: {data['objective']}, Tone: {data['tone']}
@@ -150,20 +148,24 @@ def repurpose_content(data):
     
     system_instruction_text = create_system_instruction(data)
     generation_config = get_generation_config(data['platforms'])
-    user_query = f"Repurpose the Original Content for the user, following the system instructions and JSON format."
     
-    # FIX: system_instruction is passed as a type.Part in the contents list.
+    # We combine the system instruction and the final user query into one prompt
+    # since we cannot use the dedicated system_instruction argument.
+    # We will let the user query itself contain the system instructions.
+    
+    # FIX: Using strings directly for text parts to avoid the TypeError crash.
+    # The system instruction is prepended to the user query for compatibility.
+    combined_query = f"{system_instruction_text}\n\nUSER QUERY: Repurpose the Original Content for the user, following the system instructions and JSON format."
+    
     contents = [
-        types.Part.from_text(system_instruction_text),
-        types.Part.from_text(user_query)
+        combined_query # Pass the combined prompt as a single string Part
     ]
     
     try:
         response = client.models.generate_content(
             model=GEMINI_MODEL,
-            contents=contents, # The system instruction is now inside here
+            contents=contents, 
             config=generation_config
-            # Removed the problematic system_instruction=... keyword argument
         )
         return json.loads(response.text)
     except Exception as e:
