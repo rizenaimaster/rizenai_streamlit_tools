@@ -8,7 +8,7 @@ from google.genai import types
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="RizenAi Content Repurposer", page_icon="🚀", layout="centered")
 
-# --- CUSTOM CSS (BUTTON SHAPE FIX) ---
+# --- CUSTOM CSS (WIDE BUTTON FIX) ---
 st.markdown("""
     <style>
     /* Import Poppins Font */
@@ -41,28 +41,23 @@ st.markdown("""
         border-radius: 5px;
     }
     
-    /* --- BUTTON STYLING (FIXED SHAPE) --- */
+    /* --- BUTTON STYLING (FULL WIDTH FIX) --- */
     
-    [data-testid="stFormSubmitButton"] > button {
+    /* Target the Form Submit Button */
+    div[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button {
         background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
         color: white !important;
         font-family: 'Poppins', sans-serif !important;
         font-weight: 700 !important;
         font-size: 18px !important;
         border: none !important;
+        border-radius: 8px !important; /* Nice rounded corners, not an oval */
+        padding: 15px 0px !important;  /* Taller button for easier clicking */
         
-        /* SHAPE FIX: 10px instead of 50px */
-        border-radius: 10px !important; 
-        padding: 12px 0px !important;
-        
-        /* TEXT FIX: Force 1 line */
-        white-space: nowrap !important;
-        
-        /* CENTERING & SIZE */
-        width: 70% !important; /* Slightly wider to fit text */
+        /* WIDTH & ALIGNMENT FIX */
+        width: 100% !important;        /* Fills the container (2.5x wider) */
+        margin: 0 !important;          /* Resets margins */
         display: block !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
         
         /* Glow */
         box-shadow: 0 0 15px rgba(0, 198, 255, 0.4);
@@ -70,9 +65,9 @@ st.markdown("""
     }
 
     /* Hover Effect */
-    [data-testid="stFormSubmitButton"] > button:hover {
+    div[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button:hover {
         box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
-        transform: scale(1.02);
+        transform: scale(1.01); /* Slight zoom */
         color: white !important;
     }
 
