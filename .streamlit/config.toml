@@ -12,4 +12,4 @@ primaryColor = "#00FFFF"
 textColor = "#FFFFFF"
 
 # Font (Custom font will be set via CSS in app.py)
-font = "sans serif"
+font = "Poppins"
