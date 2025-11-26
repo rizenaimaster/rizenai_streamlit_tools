@@ -8,7 +8,7 @@ from google.genai import types
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="RizenAi Content Repurposer", page_icon="🚀", layout="centered")
 
-# --- CUSTOM CSS (Button Updates Included) ---
+# --- CUSTOM CSS (FORCE FIX) ---
 st.markdown("""
     <style>
     /* Import Poppins Font */
@@ -23,7 +23,7 @@ st.markdown("""
         color: white !important;
     }
     
-    /* GRADIENT BORDER CONTAINER */
+    /* GRADIENT BORDER CONTAINER (The Box) */
     div[data-testid="stForm"] {
         background-color: #00243B;
         border: 2px solid transparent;
@@ -41,17 +41,11 @@ st.markdown("""
         border-radius: 5px;
     }
     
-    /* --- NEW BUTTON STYLING (Centered & Smaller) --- */
+    /* --- BUTTON STYLING (NUCLEAR OPTION) --- */
     
-    /* 1. Center the button container */
-    .stButton {
-        display: flex;
-        justify-content: center;
-    }
-    
-    /* 2. Style the button itself */
-    .stButton > button {
-        background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%); /* Blue-Cyan Gradient */
+    /* Target the button inside the form specifically */
+    div[data-testid="stForm"] .stButton > button {
+        background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
         color: white !important;
         font-family: 'Poppins', sans-serif !important;
         font-weight: 700 !important;
@@ -60,17 +54,20 @@ st.markdown("""
         border-radius: 8px !important;
         padding: 12px 30px !important;
         
-        /* SIZE: 60% Width (Smaller than screenshot) */
-        width: 60% !important; 
+        /* FORCE CENTERING & SIZE */
+        width: 60% !important;
+        display: block !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
         
-        /* Base Glow */
+        /* Glow */
         box-shadow: 0 0 15px rgba(0, 198, 255, 0.4);
         transition: all 0.3s ease-in-out;
     }
 
-    /* 3. Mouseover Effect (Intense Glow + Slight Zoom) */
-    .stButton > button:hover {
-        box-shadow: 0 0 30px rgba(0, 255, 255, 0.9); /* Bright Cyan Glow */
+    /* Hover Effect */
+    div[data-testid="stForm"] .stButton > button:hover {
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
         transform: scale(1.02);
         color: white !important;
     }
