@@ -8,7 +8,7 @@ from google.genai import types
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="RizenAi Content Repurposer", page_icon="🚀", layout="centered")
 
-# --- CUSTOM CSS (To Match Your Screenshots) ---
+# --- CUSTOM CSS (Button Updates Included) ---
 st.markdown("""
     <style>
     /* Import Poppins Font */
@@ -19,46 +19,60 @@ st.markdown("""
     }
 
     /* THEME COLORS */
-    /* Background is handled by config.toml, this handles specific text colors */
     h1, h2, h3 {
         color: white !important;
     }
     
     /* GRADIENT BORDER CONTAINER */
-    /* This creates the box around your input form */
     div[data-testid="stForm"] {
         background-color: #00243B;
         border: 2px solid transparent;
         border-image: linear-gradient(to right, #00FFFF, #FF007F) 1;
         border-radius: 10px;
-        padding: 20px;
+        padding: 30px;
         box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
     }
 
     /* INPUT FIELDS STYLING */
     .stTextInput > div > div > input, .stTextArea > div > div > textarea {
-        background-color: #001829 !important; /* Darker background for inputs */
+        background-color: #001829 !important; 
         color: white !important;
-        border: 1px solid #00FFFF !important; /* Cyan Border */
+        border: 1px solid #00FFFF !important; 
         border-radius: 5px;
     }
     
-    /* BUTTON STYLING (The "Plug & Play" Glow) */
+    /* --- NEW BUTTON STYLING (Centered & Smaller) --- */
+    
+    /* 1. Center the button container */
+    .stButton {
+        display: flex;
+        justify-content: center;
+    }
+    
+    /* 2. Style the button itself */
     .stButton > button {
-        background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%);
+        background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%); /* Blue-Cyan Gradient */
         color: white !important;
-        font-weight: bold !important;
+        font-family: 'Poppins', sans-serif !important;
+        font-weight: 700 !important;
         font-size: 18px !important;
         border: none !important;
-        border-radius: 5px !important;
-        padding-top: 10px !important;
-        padding-bottom: 10px !important;
-        box-shadow: 0 0 20px rgba(0, 198, 255, 0.6);
-        width: 100%;
+        border-radius: 8px !important;
+        padding: 12px 30px !important;
+        
+        /* SIZE: 60% Width (Smaller than screenshot) */
+        width: 60% !important; 
+        
+        /* Base Glow */
+        box-shadow: 0 0 15px rgba(0, 198, 255, 0.4);
+        transition: all 0.3s ease-in-out;
     }
+
+    /* 3. Mouseover Effect (Intense Glow + Slight Zoom) */
     .stButton > button:hover {
-        box-shadow: 0 0 30px rgba(0, 198, 255, 0.9);
-        transform: scale(1.01);
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.9); /* Bright Cyan Glow */
+        transform: scale(1.02);
+        color: white !important;
     }
 
     /* FOOTER STYLING */
@@ -162,7 +176,7 @@ with st.form("blueprint_form"):
 
     st.write("") # Spacer
     
-    # THE BIG BUTTON
+    # THE BIG BUTTON (CENTERED & GLOWING)
     submitted = st.form_submit_button("🚀 Plug & Play: Repurpose Content Now")
 
 # --- 3. EXECUTION LOGIC (Animations & API) ---
