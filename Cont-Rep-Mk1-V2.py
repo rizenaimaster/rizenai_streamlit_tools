@@ -136,10 +136,12 @@ def get_generation_config(platforms):
     properties = {}
     for platform in platforms:
         properties[platform.replace(' ', '_')] = {"type": "string"}
+    
+    # FINAL FIX: Removed the 'tools' property which conflicted with 'response_mime_type="application/json"'.
     return types.GenerateContentConfig(
         response_mime_type="application/json",
-        response_schema={"type": "object", "properties": properties},
-        tools=[{"google_search": {}}]
+        response_schema={"type": "object", "properties": properties}
+        # Tools removed here to resolve the 400 INVALID_ARGUMENT error.
     )
 
 def repurpose_content(data):
@@ -149,16 +151,11 @@ def repurpose_content(data):
     system_instruction_text = create_system_instruction(data)
     generation_config = get_generation_config(data['platforms'])
     
-    # We combine the system instruction and the final user query into one prompt
-    # since we cannot use the dedicated system_instruction argument.
-    # We will let the user query itself contain the system instructions.
-    
-    # FIX: Using strings directly for text parts to avoid the TypeError crash.
-    # The system instruction is prepended to the user query for compatibility.
+    # Combined query to handle system instructions in a compatible way
     combined_query = f"{system_instruction_text}\n\nUSER QUERY: Repurpose the Original Content for the user, following the system instructions and JSON format."
     
     contents = [
-        combined_query # Pass the combined prompt as a single string Part
+        combined_query
     ]
     
     try:
@@ -169,6 +166,11 @@ def repurpose_content(data):
         )
         return json.loads(response.text)
     except Exception as e:
+        # Check if the error is due to bad JSON output from the model
+        if 'JSONDecodeError' in str(e):
+            st.error("Generation Error: The model outputted invalid JSON. Trying again...")
+            # Optionally implement a retry logic here, but for now, just show the error
+        
         st.error(f"Generation Error: {e}")
         return None
 
