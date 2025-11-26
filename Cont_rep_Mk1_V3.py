@@ -8,7 +8,7 @@ from google.genai import types
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="RizenAi Content Repurposer", page_icon="🚀", layout="centered")
 
-# --- CUSTOM CSS (FINAL FIX) ---
+# --- CUSTOM CSS ---
 st.markdown("""
     <style>
     /* Import Poppins Font */
@@ -19,7 +19,7 @@ st.markdown("""
     }
 
     /* THEME COLORS */
-    h1, h2, h3 {
+    h1, h2, h3, p {
         color: white !important;
     }
     
@@ -40,31 +40,38 @@ st.markdown("""
         border: 1px solid #00FFFF !important; 
         border-radius: 5px;
     }
+
+    /* MULTI-SELECT STYLING */
+    .stMultiSelect > div > div > div {
+        background-color: #001829 !important;
+        color: white !important;
+        border: 1px solid #00FFFF !important;
+    }
+    /* The selected tags inside the multiselect */
+    .stMultiSelect span[data-baseweb="tag"] {
+        background-color: #00FFFF !important;
+        color: black !important;
+    }
     
     /* --- BUTTON STYLING (BRUTE FORCE FIX) --- */
-    
-    /* Target ANY button inside the Form Container */
     div[data-testid="stForm"] button {
         background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
         color: white !important;
         font-family: 'Poppins', sans-serif !important;
         font-weight: 700 !important;
-        font-size: 20px !important; /* Slightly larger text */
+        font-size: 20px !important;
         border: none !important;
         border-radius: 8px !important;
         padding: 15px 0px !important;
         
-        /* THE FIX: Full Width guarantees centering */
+        /* Full Width & Centered */
         width: 100% !important;
         display: block !important;
         margin: 0 auto !important;
         
-        /* Glow */
         box-shadow: 0 0 15px rgba(0, 198, 255, 0.4);
         transition: all 0.3s ease-in-out;
     }
-
-    /* Hover Effect */
     div[data-testid="stForm"] button:hover {
         box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
         transform: scale(1.01);
@@ -90,7 +97,6 @@ def load_lottiefile(filepath: str):
     except FileNotFoundError:
         return None
 
-# Load Animations
 LOTTIE_ORDER = "OrderPlaced.json" 
 LOTTIE_COOKING = "PrepareFood.json"
 LOTTIE_SERVE = "FoodServed.json"
@@ -105,18 +111,37 @@ except Exception:
 
 # --- LOGIC FUNCTIONS (Gemini Free Tier) ---
 
-def api_call_step1_captain(raw_content, user_profile):
-    SYSTEM_INSTRUCTION = "You are the 'Captain'. Analyze the user profile and content. Structure a strategic 'Order Block'."
-    prompt = f"User Profile: {user_profile}\nContent: {raw_content[:500]}..."
+def api_call_step1_captain(raw_content, user_profile, selected_platforms):
+    """Step 1: Analyze strategy based on SELECTED platforms."""
+    SYSTEM_INSTRUCTION = "You are the 'Captain'. Analyze the user profile, content, and TARGET PLATFORMS. Structure a strategic 'Order Block'."
+    
+    # We explicitly tell the AI which platforms to focus on
+    prompt = f"""
+    User Profile: {user_profile}
+    TARGET PLATFORMS: {selected_platforms}
+    Content: {raw_content[:500]}...
+    
+    Create a strategic Order Block specifically for these platforms.
+    """
+    
     response = client.models.generate_content(
         model='gemini-2.5-flash', contents=prompt,
         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, temperature=0.3)
     )
     return response.text
 
-def api_call_step2_sous_chef(order_block, raw_content):
-    SYSTEM_INSTRUCTION = "You are the 'Sous Chef' (GPT-4 Mimic). Create a detailed Production Prompt instructions list."
-    prompt = f"Order Block: {order_block}\nOriginal Content: {raw_content}"
+def api_call_step2_sous_chef(order_block, raw_content, selected_platforms):
+    """Step 2: Draft blueprints ONLY for the selected platforms."""
+    SYSTEM_INSTRUCTION = "You are the 'Sous Chef' (GPT-4 Mimic). Create detailed Production Instructions."
+    
+    prompt = f"""
+    Order Block: {order_block}
+    Original Content: {raw_content}
+    TARGET PLATFORMS: {selected_platforms}
+    
+    Create detailed writing instructions for EACH of the selected target platforms.
+    """
+    
     response = client.models.generate_content(
         model='gemini-2.5-flash', contents=prompt,
         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, temperature=0.5)
@@ -124,7 +149,9 @@ def api_call_step2_sous_chef(order_block, raw_content):
     return response.text
 
 def api_call_step3_chef(production_prompt):
-    SYSTEM_INSTRUCTION = "You are the 'Chef' (Claude Mimic). Write human-like, nuanced content deliverables."
+    """Step 3: Execute the blueprints."""
+    SYSTEM_INSTRUCTION = "You are the 'Chef' (Claude Mimic). Write human-like, nuanced content deliverables based on the instructions."
+    
     response = client.models.generate_content(
         model='gemini-2.5-flash', contents=production_prompt,
         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION, temperature=0.8)
@@ -133,56 +160,69 @@ def api_call_step3_chef(production_prompt):
 
 # --- MAIN UI LAYOUT ---
 
-# 1. Header Section
+# 1. Header
 st.markdown("<h1 style='text-align: center; margin-bottom: 0;'>RizenAi Content Repurposer</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-size: 18px; margin-top: 0;'>Turn one piece of older content into many</p>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #00FFFF; font-style: italic;'>“Good stories never die; They are just retold time and over again”</p>", unsafe_allow_html=True)
-st.write("") # Spacer
+st.write("") 
 
-# 2. The Form (Blueprint Input)
+# 2. The Form
 with st.form("blueprint_form"):
     st.markdown("### Your Blueprint (The Man-Machine Teaming Input)")
     st.markdown("---")
     
-    # Row 1
+    # Row 1: Name & Profession
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("**My Name**")
         name = st.text_input("My Name", placeholder="Mandatory: e.g., Sudip", label_visibility="collapsed")
     with col2:
         st.markdown("**My Profession (20 words max)**")
-        profession = st.text_input("My Profession", placeholder="Mandatory: e.g., Solopreneur Coach focused on...", label_visibility="collapsed")
+        profession = st.text_input("My Profession", placeholder="Mandatory: e.g., Solopreneur Coach...", label_visibility="collapsed")
     
-    # Row 2
+    # Row 2: Objective & Tone
     col3, col4 = st.columns(2)
     with col3:
-        st.markdown("**Objective for Repurposing (e.g., Reach More People)**")
-        objective = st.text_input("Objective", placeholder="Reach More People (Audience Growth)", label_visibility="collapsed")
+        st.markdown("**Objective (e.g., Reach More People)**")
+        objective = st.text_input("Objective", placeholder="Reach More People", label_visibility="collapsed")
     with col4:
-        st.markdown("**Desired Tone & Style (e.g., Casual and Friendly)**")
+        st.markdown("**Desired Tone (e.g., Casual)**")
         tone = st.text_input("Tone", placeholder="Informative and Professional", label_visibility="collapsed")
 
-    # Row 3 (Full Width)
+    # Row 3: THE NEW PLATFORM SELECTOR
+    st.markdown("**Select Target Platforms (Pick at least one)**")
+    platforms = st.multiselect(
+        "Select Platforms",
+        ["LinkedIn Post", "Twitter/X Thread", "Instagram Reel Script", "Blog Post", "Email Newsletter", "YouTube Short Script"],
+        default=["LinkedIn Post", "Twitter/X Thread"],
+        label_visibility="collapsed"
+    )
+
+    # Row 4: Content
     st.markdown("**Your Original Content (up to 200 words recommended)**")
     raw_content = st.text_area("Content", placeholder="Mandatory: Paste your original article, transcript, or long-form content here...", height=150, label_visibility="collapsed")
 
-    # Row 4 (Full Width)
+    # Row 5: Extra Info
     st.markdown("**Any Extra Vital Information (e.g., specific keywords, call to action)**")
     extra_info = st.text_input("Extra Info", placeholder="Optional: e.g., Primary CTA is 'Visit rizenai.co'...", label_visibility="collapsed")
 
-    st.write("") # Spacer
+    st.write("") 
     
-    # THE BIG BUTTON (Submit)
+    # Submit Button
     submitted = st.form_submit_button("🚀 Plug & Play: Repurpose Content Now")
 
-# --- 3. EXECUTION LOGIC (Animations & API) ---
+# --- 3. EXECUTION LOGIC ---
 if submitted:
     if not raw_content or not name or not profession:
         st.error("⚠️ Please fill in all mandatory fields (Name, Profession, Content).")
+    elif not platforms:
+        st.error("⚠️ Please select at least one Target Platform.")
     elif not api_ready:
         st.error("System API Key missing.")
     else:
-        # Combine inputs for the AI
+        # Convert list of platforms to a comma-separated string for the AI
+        platforms_str = ", ".join(platforms)
+        
         user_profile = f"Name: {name}, Profession: {profession}, Objective: {objective}, Tone: {tone}, Extra: {extra_info}"
         
         progress_container = st.empty()
@@ -191,8 +231,10 @@ if submitted:
         with progress_container.container():
             st.subheader("Step 1: The Chef Takes the Order 📝")
             st_lottie(load_lottiefile(LOTTIE_ORDER), height=200, key="order", loop=True)
-            st.info("Gemini is structuring your requirements...")
-        order_block = api_call_step1_captain(raw_content, user_profile)
+            st.info(f"Gemini is analyzing strategy for: {platforms_str}...")
+        
+        # Pass platforms to Step 1
+        order_block = api_call_step1_captain(raw_content, user_profile, platforms_str)
         
         # STEP 2: PREP (ChatGPT Mimic)
         progress_container.empty()
@@ -200,7 +242,9 @@ if submitted:
             st.subheader("Step 2: Tossed in the Wok! 🔥")
             st_lottie(load_lottiefile(LOTTIE_COOKING), height=200, key="prep", loop=True)
             st.warning("Drafting the production blueprint...")
-        production_prompt = api_call_step2_sous_chef(order_block, raw_content)
+        
+        # Pass platforms to Step 2
+        production_prompt = api_call_step2_sous_chef(order_block, raw_content, platforms_str)
         
         # STEP 3: SERVE (Claude Mimic)
         progress_container.empty()
@@ -208,6 +252,7 @@ if submitted:
             st.subheader("Step 3: Final Plating... 🍽️")
             st_lottie(load_lottiefile(LOTTIE_SERVE), height=200, key="serve", loop=True)
             st.success("Cooking final deliverables...")
+        
         final_output = api_call_step3_chef(production_prompt)
         
         # FINAL DISPLAY
