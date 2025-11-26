@@ -8,7 +8,7 @@ from google.genai import types
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="RizenAi Content Repurposer", page_icon="🚀", layout="centered")
 
-# --- CUSTOM CSS (FORCE FIX) ---
+# --- CUSTOM CSS (THE FIX) ---
 st.markdown("""
     <style>
     /* Import Poppins Font */
@@ -23,7 +23,7 @@ st.markdown("""
         color: white !important;
     }
     
-    /* GRADIENT BORDER CONTAINER (The Box) */
+    /* GRADIENT BORDER CONTAINER */
     div[data-testid="stForm"] {
         background-color: #00243B;
         border: 2px solid transparent;
@@ -41,21 +41,21 @@ st.markdown("""
         border-radius: 5px;
     }
     
-    /* --- BUTTON STYLING (NUCLEAR OPTION) --- */
+    /* --- FORM SUBMIT BUTTON STYLING (TARGETED FIX) --- */
     
-    /* Target the button inside the form specifically */
-    div[data-testid="stForm"] .stButton > button {
+    /* We target the specific Form Submit Button ID */
+    [data-testid="stFormSubmitButton"] > button {
         background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
         color: white !important;
         font-family: 'Poppins', sans-serif !important;
         font-weight: 700 !important;
         font-size: 18px !important;
         border: none !important;
-        border-radius: 8px !important;
-        padding: 12px 30px !important;
+        border-radius: 50px !important; /* Rounded pill shape like screenshot */
+        padding: 12px 0px !important;
         
         /* FORCE CENTERING & SIZE */
-        width: 60% !important;
+        width: 50% !important;
         display: block !important;
         margin-left: auto !important;
         margin-right: auto !important;
@@ -66,7 +66,7 @@ st.markdown("""
     }
 
     /* Hover Effect */
-    div[data-testid="stForm"] .stButton > button:hover {
+    [data-testid="stFormSubmitButton"] > button:hover {
         box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
         transform: scale(1.02);
         color: white !important;
@@ -173,7 +173,7 @@ with st.form("blueprint_form"):
 
     st.write("") # Spacer
     
-    # THE BIG BUTTON (CENTERED & GLOWING)
+    # THE BIG BUTTON (Submit)
     submitted = st.form_submit_button("🚀 Plug & Play: Repurpose Content Now")
 
 # --- 3. EXECUTION LOGIC (Animations & API) ---
