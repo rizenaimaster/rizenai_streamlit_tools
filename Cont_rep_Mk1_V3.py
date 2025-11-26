@@ -8,7 +8,7 @@ from google.genai import types
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="RizenAi Content Repurposer", page_icon="🚀", layout="centered")
 
-# --- CUSTOM CSS (THE FIX) ---
+# --- CUSTOM CSS (BUTTON SHAPE FIX) ---
 st.markdown("""
     <style>
     /* Import Poppins Font */
@@ -41,9 +41,8 @@ st.markdown("""
         border-radius: 5px;
     }
     
-    /* --- FORM SUBMIT BUTTON STYLING (TARGETED FIX) --- */
+    /* --- BUTTON STYLING (FIXED SHAPE) --- */
     
-    /* We target the specific Form Submit Button ID */
     [data-testid="stFormSubmitButton"] > button {
         background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
         color: white !important;
@@ -51,11 +50,16 @@ st.markdown("""
         font-weight: 700 !important;
         font-size: 18px !important;
         border: none !important;
-        border-radius: 50px !important; /* Rounded pill shape like screenshot */
+        
+        /* SHAPE FIX: 10px instead of 50px */
+        border-radius: 10px !important; 
         padding: 12px 0px !important;
         
-        /* FORCE CENTERING & SIZE */
-        width: 50% !important;
+        /* TEXT FIX: Force 1 line */
+        white-space: nowrap !important;
+        
+        /* CENTERING & SIZE */
+        width: 70% !important; /* Slightly wider to fit text */
         display: block !important;
         margin-left: auto !important;
         margin-right: auto !important;
