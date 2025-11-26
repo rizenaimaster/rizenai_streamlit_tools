@@ -8,7 +8,7 @@ from google.genai import types
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="RizenAi Content Repurposer", page_icon="🚀", layout="centered")
 
-# --- CUSTOM CSS (WIDE BUTTON FIX) ---
+# --- CUSTOM CSS (FINAL FIX) ---
 st.markdown("""
     <style>
     /* Import Poppins Font */
@@ -41,23 +41,23 @@ st.markdown("""
         border-radius: 5px;
     }
     
-    /* --- BUTTON STYLING (FULL WIDTH FIX) --- */
+    /* --- BUTTON STYLING (BRUTE FORCE FIX) --- */
     
-    /* Target the Form Submit Button */
-    div[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button {
+    /* Target ANY button inside the Form Container */
+    div[data-testid="stForm"] button {
         background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
         color: white !important;
         font-family: 'Poppins', sans-serif !important;
         font-weight: 700 !important;
-        font-size: 18px !important;
+        font-size: 20px !important; /* Slightly larger text */
         border: none !important;
-        border-radius: 8px !important; /* Nice rounded corners, not an oval */
-        padding: 15px 0px !important;  /* Taller button for easier clicking */
+        border-radius: 8px !important;
+        padding: 15px 0px !important;
         
-        /* WIDTH & ALIGNMENT FIX */
-        width: 100% !important;        /* Fills the container (2.5x wider) */
-        margin: 0 !important;          /* Resets margins */
+        /* THE FIX: Full Width guarantees centering */
+        width: 100% !important;
         display: block !important;
+        margin: 0 auto !important;
         
         /* Glow */
         box-shadow: 0 0 15px rgba(0, 198, 255, 0.4);
@@ -65,9 +65,9 @@ st.markdown("""
     }
 
     /* Hover Effect */
-    div[data-testid="stForm"] [data-testid="stFormSubmitButton"] > button:hover {
+    div[data-testid="stForm"] button:hover {
         box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
-        transform: scale(1.01); /* Slight zoom */
+        transform: scale(1.01);
         color: white !important;
     }
 
