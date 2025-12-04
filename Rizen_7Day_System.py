@@ -325,7 +325,7 @@ elif st.session_state.stage == 'SCREEN_3_SELECTION':
 # --- SCREEN 4: GENERATION & REVEAL ---
 elif st.session_state.stage == 'SCREEN_4_GENERATING':
     st.markdown("### 🏗️ Building your 7-Day Content System...")
-    st_lottie(load_lottiefile(LOTTIE_DELIVERY), height=200, key="delivering")
+    st_lottie(load_lottiefile(FoodServed.json), height=200, key="delivering")
     
     # Full Generation
     full_content = generate_7_day_plan(st.session_state.selected_topic, st.session_state.user_data)
