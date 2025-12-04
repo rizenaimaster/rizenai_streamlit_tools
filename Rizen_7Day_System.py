@@ -67,7 +67,8 @@ st.markdown("""
     }
 
     /* --- BUTTON STYLING --- */
-    .stButton > button {
+    /* Target ANY button inside the Form Container */
+    div[data-testid="stForm"] button {
         background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
         color: white !important;
         font-family: 'Poppins', sans-serif !important;
@@ -86,7 +87,7 @@ st.markdown("""
         transition: all 0.3s ease-in-out;
     }
 
-    .stButton > button:hover {
+    div[data-testid="stForm"] button:hover {
         box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
         transform: scale(1.01);
         color: white !important;
@@ -114,7 +115,7 @@ def load_lottiefile(filepath: str):
 # Ensure these exist in your repo
 LOTTIE_WELCOME = "OrderPlaced.json" 
 LOTTIE_COOKING = "PrepareFood.json"
-LOTTIE_DONE = "FoodServed.json"
+LOTTIE_DELIVERY = "FoodServed.json" # Variable name fixed
 
 # --- SESSION STATE INITIALIZATION ---
 if 'stage' not in st.session_state:
@@ -131,6 +132,8 @@ if 'day_content' not in st.session_state:
     st.session_state.day_content = []
 if 'day_revealed' not in st.session_state:
     st.session_state.day_revealed = 0
+if 'mode' not in st.session_state: # Initialize mode
+    st.session_state.mode = ""
 
 # --- API SETUP ---
 try:
@@ -370,7 +373,7 @@ elif st.session_state.stage == 'SCREEN_3_SELECTION':
 # --- SCREEN 4: GENERATION ---
 elif st.session_state.stage == 'SCREEN_4_GENERATING':
     st.markdown("### 🏗️ Building your 7-Day Content System...")
-    st_lottie(load_lottiefile(FoodServed.json), height=200, key="delivering_final")
+    st_lottie(load_lottiefile(LOTTIE_DELIVERY), height=200, key="delivering_final")
     st.info("Gemini is creating your strategy... drafting scripts... and polishing hooks...")
     
     # Full Generation
@@ -378,8 +381,6 @@ elif st.session_state.stage == 'SCREEN_4_GENERATING':
     st.session_state.final_content = full_content
     
     # Parse into days (Simple split by delimiter)
-    # We split by "--- DAY" to separate the days. 
-    # The first part [0] will likely be the "How To Guide" or Intro.
     content_parts = full_content.split("--- DAY")
     
     # Store parts in session state
