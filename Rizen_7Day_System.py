@@ -1,303 +1,360 @@
+# app.py
+"""
+RizenAi — 7-Day Consistency Launchpad (Prototype #2)
+Streamlit app implementing:
+- Welcome / User Guide
+- Inputs (niche, goal, style, platforms, time)
+- Option: user topic OR AI topic finder
+- Background "DAS" relevance check (placeholder LLM call)
+- Present 3 Topic+Angle choices (radio)
+- Step-by-step generation of 7 days content (Next)
+- Execution docs (calendar, checklist, scorecard)
+- Download .txt export
+----------
+REPLACE the placeholder `call_llm_*` functions with real LLM/Gemini API calls.
+"""
+
 import streamlit as st
-from streamlit_lottie import st_lottie
+from dataclasses import dataclass
+from typing import List, Dict
+import textwrap
+import time
 import json
-import time 
-from google import genai
-from google.genai import types
 
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="RizenAi 7-Day Content System", page_icon="📅", layout="centered")
+# -------------------------
+# UI helpers & styling
+# -------------------------
+st.set_page_config(page_title="RizenAi — 7-Day Consistency Launchpad", layout="centered")
 
-# --- CUSTOM CSS (Theme, Fonts, Button Fix) ---
-st.markdown("""
-    <style>
-    /* Import Poppins Font */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-    
-    html, body, [class*="st-"] {
-        font-family: 'Poppins', sans-serif !important;
-    }
+CSS = """
+<style>
+body { background: linear-gradient(180deg, #0f1724 0%, #111827 70%); color: #e6eef6; }
+.stButton>button { background-color: #00fff0; color: #051017; font-weight: 700; padding: 12px 18px; }
+.card { background: rgba(8,10,12,0.55); border-radius: 12px; padding: 18px; margin-bottom: 12px; }
+.small-muted { color: #9aaec3; font-size: 0.9rem; }
+.h1 { font-weight:700; color: #00f0d6; }
+.border-accent { border: 2px solid #00f0d6; border-radius: 12px; padding:14px; }
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
 
-    /* THEME COLORS */
-    h1, h2, h3, p, li, label {
-        color: white !important;
-    }
-    
-    /* GRADIENT BORDER CONTAINER */
-    div[data-testid="stForm"] {
-        background-color: #00243B;
-        border: 2px solid transparent;
-        border-image: linear-gradient(to right, #00FFFF, #FF007F) 1;
-        border-radius: 10px;
-        padding: 30px;
-        box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
-    }
+# -------------------------
+# Session State init
+# -------------------------
+if "screen" not in st.session_state:
+    st.session_state.screen = "welcome"  # welcome -> inputs -> choose_topic -> topic_opts -> generate_flow -> execution_docs -> done
+if "user_inputs" not in st.session_state:
+    st.session_state.user_inputs = {}
+if "topic_options" not in st.session_state:
+    st.session_state.topic_options = []  # list[dict{text,angle,score}]
+if "selected_topic" not in st.session_state:
+    st.session_state.selected_topic = None
+if "day_index" not in st.session_state:
+    st.session_state.day_index = 0
+if "day_outputs" not in st.session_state:
+    st.session_state.day_outputs = []
+if "execution_docs" not in st.session_state:
+    st.session_state.execution_docs = {}
+if "das_result" not in st.session_state:
+    st.session_state.das_result = None
 
-    /* INPUT FIELDS STYLING */
-    .stTextInput > div > div > input, .stTextArea > div > div > textarea, .stSelectbox > div > div > div {
-        background-color: #001829 !important; 
-        color: white !important;
-        border: 1px solid #00FFFF !important; 
-        border-radius: 5px;
-    }
-    
-    /* DROPDOWN MENU TEXT COLOR FIX */
-    ul[data-testid="stSelectboxVirtualDropdown"] li {
-        color: black !important; /* Needs to be black to show on white dropdown */
-    }
-
-    /* --- BUTTON STYLING (BRUTE FORCE FIX) --- */
-    div[data-testid="stForm"] button {
-        background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
-        color: white !important;
-        font-family: 'Poppins', sans-serif !important;
-        font-weight: 700 !important;
-        font-size: 20px !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 15px 0px !important;
-        
-        /* Full Width & Centered */
-        width: 100% !important;
-        display: block !important;
-        margin: 0 auto !important;
-        
-        box-shadow: 0 0 15px rgba(0, 198, 255, 0.4);
-        transition: all 0.3s ease-in-out;
-    }
-
-    div[data-testid="stForm"] button:hover {
-        box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
-        transform: scale(1.01);
-        color: white !important;
-    }
-
-    /* FOOTER STYLING */
-    .footer {
-        text-align: center;
-        color: #888888;
-        font-size: 12px;
-        margin-top: 50px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- ASSET LOADING ---
-@st.cache_data
-def load_lottiefile(filepath: str):
-    try:
-        with open(filepath, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return None
-
-# Animations (Ensure these JSONs are in your Repo)
-LOTTIE_ANALYSIS = "OrderPlaced.json"  # Reusing Order graphic
-LOTTIE_STRATEGY = "PrepareFood.json" # Reusing Cooking graphic
-LOTTIE_DELIVERY = "FoodServed.json"   # Reusing Serving graphic
-
-# --- API SETUP ---
-try:
-    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-    api_ready = True
-except Exception:
-    st.error("⚠️ System Error: GEMINI_API_KEY is missing in Streamlit Secrets.")
-    api_ready = False
-
-# --- CORE LOGIC FUNCTIONS (The 3-Step Workflow) ---
-
-def step1_topic_architect(user_profile, topic_input, mode):
-    """Step 1: Gemini (Native) - Analyzes market fit & trends."""
-    
-    SYSTEM_INSTRUCTION = """
-    You are the 'Topic Architect' of the RizenAi system.
-    Your strength is SITUATIONAL AWARENESS & MARKET TRENDS.
-    Your goal: Analyze the user's request and define a high-potential 'Content Angle'.
-    
-    If Mode is 'Expand Topic': Analyze the user's topic against current trends.
-    If Mode is 'Find Topic': Suggest the best high-performing topic for their profession right now.
-    
-    Output MUST be a structured 'Topic Blueprint' defining:
-    1. The Core Theme
-    2. The Unique Angle (The 'Why')
-    3. The Target Audience Persona
+# -------------------------
+# Placeholder LLM functions - Replace with real implementation
+# -------------------------
+def call_llm_das_check(user_inputs: Dict, topic_text: str) -> Dict:
     """
-    
-    prompt = f"""
-    Analyze this request.
-    
-    USER PROFILE: {user_profile}
-    MODE: {mode}
-    USER INPUT: {topic_input}
-    
-    Create a strategic Topic Blueprint.
+    Replace with Gemini/LLM call that:
+    - compares topic relevance with 'social media & content landscape as on 1 Dec 2025'
+    - returns {'relevance': 'relevant'|'irrelevant', 'score': float, 'notes': str}
+    For now we simulate.
     """
-    
-    response = client.models.generate_content(
-        model='gemini-2.5-flash', 
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_INSTRUCTION,
-            temperature=0.3 # Strict logic
-        )
-    )
-    return response.text
+    # Simulated quick check: if topic contains 'travel' or 'marketing' give higher score
+    text = (topic_text or "").lower()
+    score = 0.6
+    if any(k in text for k in ["travel", "marketing", "content", "startup", "business"]):
+        score = 0.85
+    elif len(text) < 6:
+        score = 0.3
+    notes = "Simulated DAS check. Replace call_llm_das_check with real LLM API call that uses 'social media & content landscape as on 1 Dec 2025'."
+    relevance = "relevant" if score >= 0.5 else "irrelevant"
+    return {"relevance": relevance, "score": score, "notes": notes}
 
-def step2_series_strategist(topic_blueprint):
-    """Step 2: Mimic ChatGPT - Drafts the 7-Day Plan & Instructions."""
-    
-    SYSTEM_INSTRUCTION = """
-    You are the 'Series Strategist'. You are modeled after GPT-4's comprehensive reasoning.
-    Your role: Take the Topic Blueprint and architect a 7-Day Content Series Plan.
-    
-    STRUCTURE REQUIRED:
-    - Day 1 to Day 7 breakdown.
-    - For each day: Define the Hook, the Value Format (Story, Listicle, Video, etc.), and the Core Message.
-    - Define the "Game Mode" Nudges (optional challenges for the user).
-    - Draft specific instructions for the Writer (Step 3) on tone and formatting.
-    
-    Do NOT write the final posts yet. Create the STRATEGY PLAN only.
+def call_llm_generate_topics(user_inputs: Dict) -> List[Dict]:
     """
-    
-    prompt = f"""
-    Create a comprehensive 7-Day Content Strategy based on this Blueprint:
-    
-    BLUEPRINT: {topic_blueprint}
+    Replace with LLM: produce 3 topic+angle options relevant to user inputs (use current trend prompt).
+    Return list of dicts: {'topic': str, 'angle': str, 'rationale': str}
     """
-    
-    response = client.models.generate_content(
-        model='gemini-2.5-flash', 
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_INSTRUCTION,
-            temperature=0.5 # Balanced logic/creativity
-        )
-    )
-    return response.text
+    niche = user_inputs.get("niche","Creator")
+    # Simulated
+    return [
+        {"topic": f"{niche} — Beginner's Checklist", "angle": "A practical, step-by-step checklist to start", "rationale": "High engagement; practical value"},
+        {"topic": f"{niche} — Mistakes to avoid", "angle": "Top 5 mistakes+how to fix them", "rationale": "Shareable, quick wins"},
+        {"topic": f"{niche} — Daily routine for results", "angle": "One-week routine to get measurable outcomes", "rationale": "Great for 7-day series"}
+    ]
 
-def step3_content_producer(series_strategy):
-    """Step 3: Mimic Claude - Writes the actual posts and guide."""
-    
-    SYSTEM_INSTRUCTION = """
-    You are the 'Creative Director'. You are modeled after Claude 3 Opus.
-    Your role: Write the final, polish content deliverables.
-    
-    CRITICAL WRITING RULES:
-    1. Write like a human. Nuanced, engaging, varied sentence structure.
-    2. NO AI CLICHES (Avoid: 'Unlock', 'Unleash', 'In today's world', 'Deep dive').
-    3. Format the output as a single, clean text stream delimited by '--- DAY X ---'.
-    
-    DELIVERABLES TO GENERATE:
-    1. The 7-Day Content Scripts (Platform-ready).
-    2. A brief 'How-To' guide on posting this series.
-    3. The 'Game Mode' challenges for the user.
+def call_llm_generate_day(user_inputs: Dict, topic: str, angle: str, day_number:int) -> Dict:
     """
-
-    prompt = f"""
-    Execute this Strategy and generate the final content series:
-    
-    STRATEGY: {series_strategy}
+    Replace with LLM: generate full script/caption/hook/CTA/hashtags for a given day.
+    Return {'day': int, 'hook':str, 'script':str, 'cta':str, 'hashtags':List[str]}
     """
+    # Simulated: a simple templated output
+    hook = f"Day {day_number}: {angle} — quick hook for {topic}"
+    script = f"{topic} — Day {day_number}\n\nThis is a concise script built in {user_inputs.get('tone','informal')} tone. Focus: {angle}.\n\nActionable tip: Do this for 3 mins..."
+    cta = "Save & try this today. Tell me how it went!"
+    hashtags = ["#consistency","#RizenAi","#content"]
+    return {"day": day_number, "hook": hook, "script": script, "cta": cta, "hashtags": hashtags}
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash', 
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_INSTRUCTION,
-            temperature=0.8 # High creativity
-        )
-    )
-    return response.text
+def call_llm_generate_execution_docs(user_inputs: Dict, topic: str, angle: str, day_outputs: List[Dict]) -> Dict:
+    """
+    Replace with LLM: produce calendar, checklist and scorecard text.
+    Return {'calendar':str,'checklist':str,'scorecard':str}
+    """
+    cal_lines = []
+    for d in day_outputs:
+        cal_lines.append(f"Day {d['day']}: {d['hook'][:80]} - CTA: {d['cta']}")
+    calendar = "Weekly Content Calendar\n" + "\n".join(cal_lines)
+    checklist = "Posting Checklist:\n- Prepare visual\n- Schedule\n- Engage first hour\n- Save analytics"
+    scorecard = "Consistency Scorecard: Post frequency, Engagement, Completion"
+    return {"calendar":calendar,"checklist":checklist,"scorecard":scorecard}
 
-# --- MAIN UI LAYOUT ---
+# -------------------------
+# Prompts (for developer) - what to send to Gemini (example)
+# -------------------------
+LLM_PROMPT_EXAMPLE_DAS = textwrap.dedent("""\
+You are given:
+- user_inputs: {user_inputs}
+- candidate_topic: {topic}
+Task:
+1) Check social media & content landscape relevance as on 01-Dec-2025.
+2) Score relevance 0..1 and state brief reasons.
+3) If score < 0.5, suggest short alternative angle.
+Return JSON: {{ "relevance":"relevant"|"irrelevant", "score":float, "notes":str }}
+""")
 
-# Header
-st.markdown("<h1 style='text-align: center; margin-bottom: 0;'>RizenAi 7-Day Content System</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 18px; margin-top: 0;'>One Topic. Seven Days. Zero Chaos.</p>", unsafe_allow_html=True)
-st.write("") 
+LLM_PROMPT_EXAMPLE_TOPIC_GEN = textwrap.dedent("""\
+You are a content strategist. Based on these user inputs: {user_inputs}
+Produce exactly 3 Topic+Angle options. For each option give: topic, angle, 1-sentence rationale, and 1 micro-hashtag set.
+Strict JSON output.
+""")
 
-# Form
-with st.form("seven_day_form"):
-    st.markdown("### 🛠️ Configure Your Content Engine")
-    st.markdown("---")
-    
-    col1, col2 = st.columns(2)
+LLM_PROMPT_EXAMPLE_DAY = textwrap.dedent("""\
+You are a content writer. Inputs: {user_inputs}, chosen topic: {topic}, chosen angle: {angle}, day: {day}.
+Produce: hook (single line), full script (max 220 words), CTA (short), 5 hashtags.
+Return JSON.
+""")
+
+# -------------------------
+# UI Screens
+# -------------------------
+def screen_welcome():
+    st.markdown("<h1 class='h1'>More RizenAi systems — Coming Soon</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown("### The 7-Day Consistency Launchpad")
+    st.markdown("Turn your messy content life into a clean, consistent weekly system — starting today.")
+    st.markdown('<div class="small-muted">Simple. Guided. One week at a time.</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    col1, col2 = st.columns([1,1])
     with col1:
-        name = st.text_input("My Name", placeholder="e.g. Sarah")
-        profession = st.text_input("My Profession", placeholder="e.g. Graphic Designer")
+        if st.button("User Guide"):
+            st.session_state.show_guide = True
+            st.session_state.screen = "inputs"
     with col2:
-        tone = st.text_input("My Voice/Tone", placeholder="e.g. Witty & Authentic")
-        # Select Mode
-        mode = st.selectbox("What do you want to do?", 
-                            ["(A) Expand a Topic I Have", "(B) Find a Topic for Me"])
-    
-    st.markdown("**Your Input (The Seed)**")
-    if mode == "(A) Expand a Topic I Have":
-        user_input = st.text_area("Enter your topic/idea:", placeholder="e.g. 'Why branding is more than just a logo'", height=100)
-    else:
-        user_input = st.text_area("Describe your target audience & goal (so we can find a topic):", placeholder="e.g. 'I want to reach startup founders who need design help'", height=100)
+        if st.button("Let's Begin"):
+            st.session_state.screen = "inputs"
 
-    st.write("") 
-    
-    submitted = st.form_submit_button("🚀 Launch 7-Day System")
-
-# --- EXECUTION LOGIC ---
-if submitted:
-    if not name or not profession:
-         st.error("⚠️ Please fill in Name and Profession.")
-    elif not user_input:
-         st.error("⚠️ Please provide the Topic or Audience info.")
-    elif not api_ready:
-         st.error("System API Key missing.")
-    else:
-        user_profile = f"Name: {name}, Profession: {profession}, Tone: {tone}"
-        
-        progress_container = st.empty()
-        
-        # STEP 1: ARCHITECT (Gemini)
-        with progress_container.container():
-            st.subheader("Step 1: Analyzing Market Trends... 📊")
-            st_lottie(load_lottiefile(LOTTIE_ANALYSIS), height=200, key="1", loop=True)
-            st.info("Gemini is finding the perfect angle for your series...")
-        
-        topic_blueprint = step1_topic_architect(user_profile, user_input, mode)
-        time.sleep(1)
-
-        # STEP 2: STRATEGIST (ChatGPT Mimic)
-        progress_container.empty()
-        with progress_container.container():
-            st.subheader("Step 2: Designing the 7-Day Arc... 🗺️")
-            st_lottie(load_lottiefile(LOTTIE_STRATEGY), height=200, key="2", loop=True)
-            st.warning("Building the strategy, CTA, and engagement hooks...")
-        
-        series_strategy = step2_series_strategist(topic_blueprint)
-        time.sleep(1)
-
-        # STEP 3: PRODUCER (Claude Mimic)
-        progress_container.empty()
-        with progress_container.container():
-            st.subheader("Step 3: Writing Final Scripts... ✍️")
-            st_lottie(load_lottiefile(LOTTIE_DELIVERY), height=200, key="3", loop=True)
-            st.success("Crafting human-like posts and the user guide...")
-        
-        final_output = step3_content_producer(series_strategy)
-        
-        # FINAL DISPLAY
-        progress_container.empty()
-        st.balloons()
-        st.markdown("<h2 style='text-align: center; color: #00FFFF;'>🎉 Your 7-Day Series is Ready!</h2>", unsafe_allow_html=True)
-        
+    if st.session_state.get("show_guide", False):
         st.markdown("---")
-        st.markdown(final_output)
-        
-        # Download Button
-        st.download_button(
-            label="📥 Download Complete Series (Text File)",
-            data=final_output,
-            file_name="RizenAi_7Day_Series.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
+        st.markdown("**Quick guide:** This tool helps you pick one topic and run a frictionless 7-day series. The app will ask a few simple questions and then generate everything day-by-day. You can download the final pack as `.txt`.")
+        st.markdown("---")
 
-# --- FOOTER ---
-st.markdown("<div class='footer'>© RizenAi.Co | All Rights Reserved</div>", unsafe_allow_html=True)
+def screen_inputs():
+    st.header("Step 1 — Tell me about you (quick)")
+    with st.form("input_form"):
+        niche = st.text_input("What do you want to talk about? (Niche / Industry)", value=st.session_state.user_inputs.get("niche",""))
+        goal = st.selectbox("Goal", ["Grow brand","Attract clients","Share knowledge","Build authority"], index=0)
+        style = st.selectbox("Tone / Style", ["Educator","Storyteller","Conversational","Entertaining","Witty"], index=0)
+        platforms = st.multiselect("Platforms", ["LinkedIn","Instagram","Twitter/X","YouTube Short","Facebook"], default=["LinkedIn","Instagram"])
+        time_per_day = st.selectbox("Time available per day", ["10 min","20 min","30 min","1 hour"], index=0)
+        submitted = st.form_submit_button("Continue")
+
+    if submitted:
+        st.session_state.user_inputs = {
+            "niche": niche.strip(),
+            "goal": goal,
+            "style": style,
+            "platforms": platforms,
+            "time_per_day": time_per_day
+        }
+        st.session_state.screen = "choose_topic"
+
+def screen_choose_topic():
+    st.header("Step 2 — Topic choice")
+    st.markdown("Would you like to use a topic you already have, or let AI suggest a relevant topic?")
+    choice = st.radio("", ("I have my own topic", "Let AI suggest topics"), index=1)
+
+    if choice == "I have my own topic":
+        topic = st.text_input("Enter your topic (one short sentence)", value=st.session_state.user_inputs.get("topic",""))
+        if st.button("Check topic & continue"):
+            st.session_state.user_inputs["topic"] = topic.strip()
+            # run background DAS check
+            st.session_state.das_result = call_llm_das_check(st.session_state.user_inputs, topic.strip())
+            st.session_state.screen = "das_result"
+    else:
+        if st.button("Find best-fit topics (AI)"):
+            st.session_state.topic_options = call_llm_generate_topics(st.session_state.user_inputs)
+            st.session_state.screen = "topic_options"
+
+def screen_das_result():
+    st.header("Topic relevance — Background check (DAS simulation)")
+    res = st.session_state.das_result or {"relevance":"irrelevant","score":0,"notes":"no data"}
+    st.write(f"**Relevance:** {res['relevance'].upper()}   •   **Score:** {res['score']:.2f}")
+    st.info(res["notes"])
+    st.markdown("---")
+    if res["relevance"] == "relevant":
+        if st.button("Start my 7-day strategy with this topic"):
+            # prepare topic options from user topic (angle=default)
+            topic = st.session_state.user_inputs.get("topic","Untitled Topic")
+            st.session_state.topic_options = [{"topic": topic, "angle": "Default angle: Practical series", "rationale": "User-provided topic"}]
+            st.session_state.screen = "topic_options"
+    else:
+        st.warning("This topic appears less relevant according to current landscape checks.")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Continue with my topic anyway"):
+                topic = st.session_state.user_inputs.get("topic","Untitled Topic")
+                st.session_state.topic_options = [{"topic": topic, "angle": "User angle", "rationale": "User chose to continue"}]
+                st.session_state.screen = "topic_options"
+        with col2:
+            if st.button("Let AI suggest better options"):
+                st.session_state.topic_options = call_llm_generate_topics(st.session_state.user_inputs)
+                st.session_state.screen = "topic_options"
+
+def screen_topic_options():
+    st.header("Step 3 — Pick a Topic + Angle")
+    st.markdown("Choose one option below. If you want a different mix, click 'Regenerate'.")
+    for i, opt in enumerate(st.session_state.topic_options):
+        st.markdown(f"**{i+1}. {opt['topic']}** — *{opt.get('angle','')}*")
+        st.write(f"_{opt.get('rationale','')}_")
+    selected = st.radio("Select", options=list(range(len(st.session_state.topic_options))), format_func=lambda i: f"Option {i+1}")
+    if st.button("Start my 7-day strategy"):
+        idx = selected
+        pick = st.session_state.topic_options[idx]
+        st.session_state.selected_topic = pick
+        st.session_state.day_index = 0
+        st.session_state.day_outputs = []
+        st.session_state.screen = "generate_days"
+    if st.button("Regenerate topics"):
+        st.session_state.topic_options = call_llm_generate_topics(st.session_state.user_inputs)
+        st.experimental_rerun()
+
+def screen_generate_days():
+    st.header("Step 4 — Generate your 7-day series (one day at a time)")
+    pick = st.session_state.selected_topic
+    if not pick:
+        st.error("No topic selected, go back.")
+        return
+    st.markdown(f"**Topic:** {pick['topic']}  —  **Angle:** {pick['angle']}")
+    st.markdown("Press **Generate Next Day** to create the next day's post. This app generates one day at a time to avoid overwhelming decisions and to keep the user in control.")
+
+    if st.session_state.day_index >= 7:
+        st.success("All 7 days generated.")
+        if st.button("Generate Execution Docs (calendar, checklist, scorecard)"):
+            st.session_state.execution_docs = call_llm_generate_execution_docs(st.session_state.user_inputs, pick['topic'], pick['angle'], st.session_state.day_outputs)
+            st.session_state.screen = "execution_docs"
+        return
+
+    # show already generated days
+    for d in st.session_state.day_outputs:
+        st.markdown(f"**Day {d['day']}** — {d['hook']}")
+        with st.expander("Show script & details"):
+            st.write(d["script"])
+            st.write("CTA:", d["cta"])
+            st.write("Hashtags:", " ".join(d["hashtags"]))
+
+    if st.button("Generate Next Day"):
+        # call LLM to generate next day
+        next_day = st.session_state.day_index + 1
+        # show spinner while generating
+        with st.spinner(f"Generating day {next_day}..."):
+            out = call_llm_generate_day(st.session_state.user_inputs, pick['topic'], pick['angle'], next_day)
+            # small delay to mimic LLM
+            time.sleep(0.8)
+            st.session_state.day_outputs.append(out)
+            st.session_state.day_index += 1
+            st.experimental_rerun()
+
+def screen_execution_docs():
+    st.header("Step 5 — Execution Pack (downloadable)")
+    docs = st.session_state.execution_docs or {}
+    st.subheader("Calendar")
+    st.code(docs.get("calendar","(empty)"))
+    st.subheader("Checklist")
+    st.code(docs.get("checklist","(empty)"))
+    st.subheader("Scorecard")
+    st.code(docs.get("scorecard","(empty)"))
+
+    # Build downloadable .txt
+    downloadable = []
+    downloadable.append("=== RizenAi 7-Day Consistency Launchpad ===")
+    downloadable.append(f"Topic: {st.session_state.selected_topic['topic']}")
+    downloadable.append(f"Angle: {st.session_state.selected_topic['angle']}")
+    downloadable.append("\n---\n7 Day Outputs\n")
+    for d in st.session_state.day_outputs:
+        downloadable.append(f"Day {d['day']}\nHOOK: {d['hook']}\nSCRIPT:\n{d['script']}\nCTA: {d['cta']}\nHASHTAGS: {' '.join(d['hashtags'])}\n---\n")
+    downloadable.append("\n---\nEXECUTION DOCS\n")
+    downloadable.append(docs.get("calendar",""))
+    downloadable.append("\n")
+    downloadable.append(docs.get("checklist",""))
+    downloadable.append("\n")
+    downloadable.append(docs.get("scorecard",""))
+
+    txt_blob = "\n".join(downloadable)
+    st.download_button("Download your 7-Day Pack (.txt)", txt_blob, file_name="Week_X_Content_Pack.txt", mime="text/plain")
+
+    st.markdown("---")
+    if st.button("Start another plan"):
+        # reset core session state except some user inputs
+        st.session_state.topic_options = []
+        st.session_state.selected_topic = None
+        st.session_state.day_index = 0
+        st.session_state.day_outputs = []
+        st.session_state.execution_docs = {}
+        st.session_state.screen = "choose_topic"
+
+# -------------------------
+# Router
+# -------------------------
+def router():
+    screen = st.session_state.screen
+    if screen == "welcome":
+        screen_welcome()
+    elif screen == "inputs":
+        screen_inputs()
+    elif screen == "choose_topic":
+        screen_choose_topic()
+    elif screen == "das_result":
+        screen_das_result()
+    elif screen == "topic_options":
+        screen_topic_options()
+    elif screen == "generate_days":
+        screen_generate_days()
+    elif screen == "execution_docs":
+        screen_execution_docs()
+    else:
+        st.write("Unknown screen")
+
+router()
+
+# -------------------------
+# Footer / small help UI
+# -------------------------
+st.markdown("---")
+with st.expander("Quick terms & help (i-button)"):
+    st.markdown("""
+**Identity**: the micro-content identity we create to keep your voice consistent across the week.  
+**Hook**: one-line attention-grabbing opener.  
+**CTA**: a single action you want the reader/viewer to take.  
+**Hashtags**: optional; used for discoverability but treat as suggestions.  
+**DAS**: background relevance check against the 'social landscape as on 1 Dec 2025'. The production LLM must make this check.  
+""")
