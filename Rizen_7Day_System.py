@@ -23,13 +23,14 @@ st.markdown("""
         background-color: #00243B;
     }
     
-    /* Containers */
+    /* Containers - Fixed Spacing to prevent overlap */
     div[data-testid="stForm"] {
         background-color: #001829;
         border: 1px solid #00FFFF;
         border-radius: 15px;
-        padding: 20px;
+        padding: 30px; /* Increased padding */
         box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+        margin-bottom: 20px;
     }
     
     /* Inputs */
@@ -38,6 +39,7 @@ st.markdown("""
         color: white !important;
         border: 1px solid #005f73 !important;
         border-radius: 8px;
+        margin-bottom: 10px; /* Added margin to inputs */
     }
 
     /* Radio Buttons */
@@ -67,8 +69,7 @@ st.markdown("""
     }
 
     /* --- BUTTON STYLING --- */
-    /* Target ANY button inside the Form Container */
-    div[data-testid="stForm"] button {
+    .stButton > button {
         background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
         color: white !important;
         font-family: 'Poppins', sans-serif !important;
@@ -87,7 +88,7 @@ st.markdown("""
         transition: all 0.3s ease-in-out;
     }
 
-    div[data-testid="stForm"] button:hover {
+    .stButton > button:hover {
         box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
         transform: scale(1.01);
         color: white !important;
@@ -114,8 +115,8 @@ def load_lottiefile(filepath: str):
 
 # Ensure these exist in your repo
 LOTTIE_WELCOME = "OrderPlaced.json" 
-LOTTIE_COOKING = "PrepareFood.json"
-LOTTIE_DELIVERY = "FoodServed.json" # Variable name fixed
+LOTTIE_COOKING = "PrepareFood.json" # Replaced/Verified as requested
+LOTTIE_DELIVERY = "FoodServed.json"
 
 # --- SESSION STATE INITIALIZATION ---
 if 'stage' not in st.session_state:
@@ -132,8 +133,11 @@ if 'day_content' not in st.session_state:
     st.session_state.day_content = []
 if 'day_revealed' not in st.session_state:
     st.session_state.day_revealed = 0
-if 'mode' not in st.session_state: # Initialize mode
+if 'mode' not in st.session_state: 
     st.session_state.mode = ""
+if 'temp_data_cache' not in st.session_state:
+    st.session_state.temp_data_cache = {}
+
 
 # --- API SETUP ---
 try:
@@ -292,12 +296,15 @@ if st.session_state.stage == 'SCREEN_1':
 elif st.session_state.stage == 'SCREEN_2':
     st.markdown("## 📝 Tell us about your world")
     
+    # Pre-fill form if data exists (for Back button functionality)
+    d = st.session_state.user_data
+    
     with st.form("data_form"):
-        niche = st.text_input("1. My Niche / Industry", placeholder="e.g., Digital Marketing for Solopreneurs")
-        audience = st.text_input("2. Who do I want to reach?", placeholder="e.g., Women restarting careers")
-        goal = st.text_input("3. What should this content do?", placeholder="e.g., Build authority & trust")
-        tone = st.text_input("4. Tone & Style", placeholder="e.g., Empathetic, encouraging, professional")
-        platforms = st.multiselect("5. Target Platforms", ["LinkedIn", "Instagram", "Twitter/X", "Facebook", "Blog"], default=["LinkedIn"])
+        niche = st.text_input("1. My Niche / Industry", value=d.get('niche', ''), placeholder="e.g., Digital Marketing for Solopreneurs")
+        audience = st.text_input("2. Who do I want to reach?", value=d.get('audience', ''), placeholder="e.g., Women restarting careers")
+        goal = st.text_input("3. What should this content do?", value=d.get('goal', ''), placeholder="e.g., Build authority & trust")
+        tone = st.text_input("4. Tone & Style", value=d.get('tone', ''), placeholder="e.g., Empathetic, encouraging, professional")
+        platforms = st.multiselect("5. Target Platforms", ["LinkedIn", "Instagram", "Twitter/X", "Facebook", "Blog"], default=d.get('platforms', ["LinkedIn"]))
         
         st.markdown("---")
         st.markdown("### Choose your path:")
@@ -332,8 +339,18 @@ elif st.session_state.stage == 'SCREEN_2_A_INPUT':
     st.markdown("## 💡 What is your topic?")
     
     with st.form("topic_input_form"):
-        topic_in = st.text_input("Enter your main topic or idea:", placeholder="e.g., Imposter Syndrome in new business owners")
-        submit_topic = st.form_submit_button("Generate Strategy Options")
+        # Pre-fill
+        default_topic = st.session_state.user_data.get('topic_seed', '')
+        topic_in = st.text_input("Enter your main topic or idea:", value=default_topic, placeholder="e.g., Imposter Syndrome in new business owners")
+        
+        col1, col2 = st.columns([1,3])
+        with col1:
+             if st.form_submit_button("⬅️ Back"):
+                 st.session_state.stage = 'SCREEN_2'
+                 st.session_state.user_data = st.session_state.temp_data_cache # Restore data
+                 st.rerun()
+        with col2:
+            submit_topic = st.form_submit_button("Generate Strategy Options")
         
         if submit_topic:
             if not topic_in:
@@ -363,7 +380,17 @@ elif st.session_state.stage == 'SCREEN_3_SELECTION':
     with st.form("selection_form"):
         choice = st.radio("Choose one:", st.session_state.topic_options)
         
-        submit_selection = st.form_submit_button("Lock in Strategy & Generate")
+        col1, col2 = st.columns([1,3])
+        with col1:
+             if st.form_submit_button("⬅️ Back"):
+                 # Determine where to go back to based on mode
+                 if st.session_state.mode == "EXPAND":
+                     st.session_state.stage = 'SCREEN_2_A_INPUT'
+                 else:
+                     st.session_state.stage = 'SCREEN_2'
+                 st.rerun()
+        with col2:
+            submit_selection = st.form_submit_button("Lock in Strategy & Generate")
         
         if submit_selection:
             st.session_state.selected_topic = choice
@@ -407,7 +434,6 @@ elif st.session_state.stage == 'SCREEN_5_RESULT':
         st.markdown(st.session_state.intro_content)
     
     # 2. Reveal Mechanism
-    # We only show days up to the 'day_revealed' counter
     for i in range(st.session_state.day_revealed):
         if i < len(st.session_state.daily_content):
             day_text = st.session_state.daily_content[i]
@@ -416,7 +442,6 @@ elif st.session_state.stage == 'SCREEN_5_RESULT':
                 st.markdown(day_text)
     
     # 3. The "Next Day" Button
-    # Only show if there are more days to reveal
     if st.session_state.day_revealed < len(st.session_state.daily_content):
         if st.button("👇 Generate Next Day"):
             st.session_state.day_revealed += 1
@@ -427,7 +452,6 @@ elif st.session_state.stage == 'SCREEN_5_RESULT':
     st.markdown("---")
     
     # 4. Single File Download
-    # This downloads the original full text returned by the LLM
     st.download_button(
         label="📥 Download Complete 7-Day Plan (Text File)",
         data=st.session_state.final_content,
