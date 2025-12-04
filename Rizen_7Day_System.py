@@ -69,7 +69,8 @@ st.markdown("""
     }
 
     /* --- BUTTON STYLING --- */
-    .stButton > button {
+    /* Target ANY button inside the Form Container */
+    div[data-testid="stForm"] button {
         background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
         color: white !important;
         font-family: 'Poppins', sans-serif !important;
@@ -88,7 +89,7 @@ st.markdown("""
         transition: all 0.3s ease-in-out;
     }
 
-    .stButton > button:hover {
+    div[data-testid="stForm"] button:hover {
         box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
         transform: scale(1.01);
         color: white !important;
@@ -116,7 +117,7 @@ def load_lottiefile(filepath: str):
 # Ensure these exist in your repo
 LOTTIE_WELCOME = "OrderPlaced.json" 
 LOTTIE_COOKING = "PrepareFood.json" # Replaced/Verified as requested
-LOTTIE_DELIVERY = "FoodServed.json"
+LOTTIE_DELIVERY = "FoodServed.json" # Variable name fixed
 
 # --- SESSION STATE INITIALIZATION ---
 if 'stage' not in st.session_state:
