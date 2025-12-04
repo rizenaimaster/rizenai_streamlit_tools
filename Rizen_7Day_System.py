@@ -8,7 +8,7 @@ from google.genai import types
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="RizenAi 7-Day Content System", page_icon="📅", layout="centered")
 
-# --- CUSTOM CSS (Midnight Blue Theme) ---
+# --- CUSTOM CSS (Midnight Blue Theme & Styling) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
@@ -39,22 +39,6 @@ st.markdown("""
         border: 1px solid #005f73 !important;
         border-radius: 8px;
     }
-    
-    /* Buttons */
-    .stButton > button {
-        background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
-        color: white !important;
-        font-weight: 700 !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 12px 24px !important;
-        transition: all 0.3s ease;
-        width: 100%;
-    }
-    .stButton > button:hover {
-        box-shadow: 0 0 20px rgba(0, 198, 255, 0.6);
-        transform: scale(1.02);
-    }
 
     /* Radio Buttons */
     .stRadio label {
@@ -80,6 +64,40 @@ st.markdown("""
         background-color: #001829 !important;
         color: white !important;
         border-radius: 8px;
+    }
+
+    /* --- BUTTON STYLING --- */
+    .stButton > button {
+        background: linear-gradient(90deg, #00C6FF 0%, #0072FF 100%) !important;
+        color: white !important;
+        font-family: 'Poppins', sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 20px !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 15px 0px !important;
+        
+        /* Full Width & Centered */
+        width: 100% !important;
+        display: block !important;
+        margin: 0 auto !important;
+        
+        box-shadow: 0 0 15px rgba(0, 198, 255, 0.4);
+        transition: all 0.3s ease-in-out;
+    }
+
+    .stButton > button:hover {
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
+        transform: scale(1.01);
+        color: white !important;
+    }
+    
+    /* FOOTER STYLING */
+    .footer {
+        text-align: center;
+        color: #888888;
+        font-size: 12px;
+        margin-top: 50px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -109,6 +127,8 @@ if 'selected_topic' not in st.session_state:
     st.session_state.selected_topic = ""
 if 'final_content' not in st.session_state:
     st.session_state.final_content = ""
+if 'day_content' not in st.session_state:
+    st.session_state.day_content = []
 if 'day_revealed' not in st.session_state:
     st.session_state.day_revealed = 0
 
@@ -129,18 +149,29 @@ def generate_topic_options(user_input_data, mode):
     Gemini acts as a Market Analyst (Situational Awareness).
     """
     system_instruction = """
-    You are an expert Content Strategist with deep knowledge of 2024-2025 digital trends.
+    You are an expert Content Strategist with deep knowledge of digital trends for late 2024 and 2025.
     Your goal is to suggest 3 highly relevant, engaging content series topics based on the user's profile.
-    For each option, provide a Title and a 1-sentence 'Why this works now' justification.
-    Return ONLY a JSON array of strings, e.g., ["Topic 1 - Why", "Topic 2 - Why", "Topic 3 - Why"].
+    
+    For each option, provide:
+    1. A Catchy Series Title
+    2. A 1-sentence 'Why this works now' justification based on current trends.
+    
+    Output MUST be a valid JSON array of strings. 
+    Example: ["Title 1 - Why it works", "Title 2 - Why it works", "Title 3 - Why it works"]
     """
     
+    # Determine input context based on mode
+    input_context = user_input_data.get('topic_seed') if mode == "EXPAND" else "No specific topic provided. Find the best opportunity."
+
     prompt_context = f"""
-    User Profile: {user_input_data['niche']} | {user_input_data['audience']}
+    User Profile:
+    Niche: {user_input_data['niche']}
+    Audience: {user_input_data['audience']}
     Goal: {user_input_data['goal']}
     Tone: {user_input_data['tone']}
-    Mode: {mode}
-    Input: {user_input_data.get('topic_seed', 'Find best topics')}
+    
+    Mode: {mode} (If EXPAND, build on input. If FIND, suggest new high-potential topics).
+    Input: {input_context}
     """
     
     try:
@@ -154,7 +185,7 @@ def generate_topic_options(user_input_data, mode):
         return json.loads(text)
     except Exception as e:
         st.error(f"Error generating topics: {e}")
-        return ["Option 1: General Industry Trends", "Option 2: How-To Series", "Option 3: Common Mistakes"]
+        return ["Option 1: Trends Analysis", "Option 2: How-To Guide", "Option 3: Common Mistakes"]
 
 def generate_7_day_plan(selected_topic, user_data):
     """
@@ -164,9 +195,23 @@ def generate_7_day_plan(selected_topic, user_data):
     Returns the full text content.
     """
     
+    platforms_list = ", ".join(user_data['platforms'])
+
     # PHASE 1: STRATEGY (ChatGPT Persona - Logic & Structure)
-    strat_system = "You are a Master Content Planner (modeled after GPT-4). Create a detailed 7-day outline for this topic. Focus on flow, hooks, and value."
-    strat_prompt = f"Plan a 7-Day Series on: {selected_topic}\nContext: {user_data}"
+    strat_system = """
+    You are a Master Content Planner (modeled after GPT-4's reasoning).
+    Create a detailed 7-day outline for this topic. 
+    Focus on narrative flow, engagement hooks, and high value.
+    Do NOT write the posts yet. Just the plan.
+    """
+    
+    strat_prompt = f"""
+    Plan a 7-Day Content Series.
+    Topic: {selected_topic}
+    Audience: {user_data['audience']}
+    Platforms: {platforms_list}
+    Goal: {user_data['goal']}
+    """
     
     strat_response = client.models.generate_content(
         model='gemini-2.5-flash',
@@ -181,17 +226,32 @@ def generate_7_day_plan(selected_topic, user_data):
     Write the full content for the 7-Day Series based on the strategy provided.
     
     RULES:
-    1. No AI cliches ('Unlock', 'Unleash', 'In today's world').
+    1. No AI cliches ('Unlock', 'Unleash', 'In today's world', 'Deep dive').
     2. Write in a human, engaging voice matching the user's tone.
-    3. Include specific CTAs and Hashtags for each day.
-    4. Add a small 'How-To Guide' at the start.
+    3. For EACH DAY, write specific content for EACH selected platform.
+       - Label them clearly (e.g., [LinkedIn], [Twitter]).
+       - Include specific CTAs and Hashtags for each.
+    4. Add a small 'How-To Guide' at the very start of the file.
     5. Include 'Game Mode' nudges (fun challenges) for each day.
     
     FORMAT:
-    Use '--- DAY 1 ---', '--- DAY 2 ---' as delimiters.
+    The output must be a single text stream.
+    Use the exact delimiter '--- DAY [Number] ---' to separate days.
+    Example:
+    --- DAY 1 ---
+    (Content for Day 1)
+    --- DAY 2 ---
+    (Content for Day 2)
     """
     
-    write_prompt = f"Execute this plan and write the full content:\n\n{strategy}"
+    write_prompt = f"""
+    Execute this Plan and write the full content.
+    User Tone: {user_data['tone']}
+    Target Platforms: {platforms_list}
+    
+    STRATEGY BLUEPRINT:
+    {strategy}
+    """
     
     final_response = client.models.generate_content(
         model='gemini-2.5-flash',
@@ -201,39 +261,12 @@ def generate_7_day_plan(selected_topic, user_data):
     return final_response.text
 
 
-# --- UI NAVIGATION ---
-
-def go_to_screen_2():
-    st.session_state.stage = 'SCREEN_2'
-
-def go_to_screen_3(mode):
-    # Save Screen 2 Data
-    st.session_state.user_data = {
-        'niche': niche,
-        'audience': audience,
-        'goal': goal,
-        'tone': tone,
-        'platforms': platforms
-    }
-    st.session_state.mode = mode
-    st.session_state.stage = 'SCREEN_3'
-
-def process_topic_selection():
-    # Trigger Generation
-    if not st.session_state.selected_topic:
-        st.warning("Please select a topic.")
-        return
-    
-    st.session_state.stage = 'PROCESSING'
-    st.rerun()
-
-def reveal_next_day():
-    if st.session_state.day_revealed < 7:
-        st.session_state.day_revealed += 1
+# --- UI NAVIGATION & RENDERING ---
 
 # --- SCREEN 1: WELCOME ---
 if st.session_state.stage == 'SCREEN_1':
-    st.markdown("<h1 style='font-size: 42px;'>RizenAi 7-Day System</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size: 42px;'>RizenAi 7-Day Content System</h1>", unsafe_allow_html=True)
+    
     col1, col2 = st.columns([1,2])
     with col1:
         st_lottie(load_lottiefile(LOTTIE_WELCOME), height=150, loop=True)
@@ -242,14 +275,15 @@ if st.session_state.stage == 'SCREEN_1':
         st.write("Turn one idea into a week of high-impact content. Guided, strategic, and done for you.")
     
     st.write("")
-    if st.button("Start My 7-Day Journey 🚀"):
-        go_to_screen_2()
-        st.rerun()
-        
+    
+    # Guide Button (Fake Download for Demo - You can link a real file)
     with st.expander("📖 Read the User Guide"):
-        st.info("This tool will ask you a few questions, find the perfect angle, and generate 7 days of posts for LinkedIn, Twitter, and more.")
-        # Link to download guide from repo (Placeholder)
-        st.markdown("[Download Full Guide (PDF)](https://github.com/your-repo/guide.pdf)")
+         st.info("This tool will ask you a few questions, find the perfect angle, and generate 7 days of posts for LinkedIn, Twitter, and more.")
+    
+    st.write("")
+    if st.button("Start My 7-Day Journey 🚀"):
+        st.session_state.stage = 'SCREEN_2'
+        st.rerun()
 
 # --- SCREEN 2: DATA COLLECTION ---
 elif st.session_state.stage == 'SCREEN_2':
@@ -264,6 +298,8 @@ elif st.session_state.stage == 'SCREEN_2':
         
         st.markdown("---")
         st.markdown("### Choose your path:")
+        
+        # We use columns to simulate two buttons for path selection
         col1, col2 = st.columns(2)
         with col1:
             submitted_a = st.form_submit_button("Path A: I have a Topic")
@@ -274,8 +310,7 @@ elif st.session_state.stage == 'SCREEN_2':
             if not niche or not audience:
                 st.error("Please fill in the basics above.")
             else:
-                st.session_state.topic_mode = "EXPAND"
-                # We need one more input for Path A
+                st.session_state.mode = "EXPAND"
                 st.session_state.temp_data_cache = {'niche': niche, 'audience': audience, 'goal': goal, 'tone': tone, 'platforms': platforms}
                 st.session_state.stage = 'SCREEN_2_A_INPUT'
                 st.rerun()
@@ -292,20 +327,27 @@ elif st.session_state.stage == 'SCREEN_2':
 # --- SCREEN 2A: TOPIC INPUT (Only for Path A) ---
 elif st.session_state.stage == 'SCREEN_2_A_INPUT':
     st.markdown("## 💡 What is your topic?")
-    topic_in = st.text_input("Enter your main topic or idea:", placeholder="e.g., Imposter Syndrome in new business owners")
-    if st.button("Generate Strategy Options"):
-        st.session_state.user_data = st.session_state.temp_data_cache
-        st.session_state.user_data['topic_seed'] = topic_in
-        st.session_state.mode = "EXPAND"
-        st.session_state.stage = 'SCREEN_3_LOADING'
-        st.rerun()
+    
+    with st.form("topic_input_form"):
+        topic_in = st.text_input("Enter your main topic or idea:", placeholder="e.g., Imposter Syndrome in new business owners")
+        submit_topic = st.form_submit_button("Generate Strategy Options")
+        
+        if submit_topic:
+            if not topic_in:
+                st.error("Please enter a topic.")
+            else:
+                st.session_state.user_data = st.session_state.temp_data_cache
+                st.session_state.user_data['topic_seed'] = topic_in
+                st.session_state.mode = "EXPAND"
+                st.session_state.stage = 'SCREEN_3_LOADING'
+                st.rerun()
 
 # --- SCREEN 3: LOADING & OPTIONS ---
 elif st.session_state.stage == 'SCREEN_3_LOADING':
     st.markdown("### 🧠 Analyzing Market Trends...")
-    st_lottie(load_lottiefile(LOTTIE_COOKING), height=200, key="cooking")
+    st_lottie(load_lottiefile(LOTTIE_COOKING), height=200, key="cooking_analysis")
     
-    # Generate Options
+    # Generate Options using Gemini
     options = generate_topic_options(st.session_state.user_data, st.session_state.mode)
     st.session_state.topic_options = options
     st.session_state.stage = 'SCREEN_3_SELECTION'
@@ -315,49 +357,66 @@ elif st.session_state.stage == 'SCREEN_3_SELECTION':
     st.markdown("## 🎯 Select your 7-Day Strategy")
     st.write("Based on current trends (Dec 2025), here are the best angles for you:")
     
-    choice = st.radio("Choose one:", st.session_state.topic_options)
-    
-    if st.button("Lock in Strategy & Generate"):
-        st.session_state.selected_topic = choice
-        st.session_state.stage = 'SCREEN_4_GENERATING'
-        st.rerun()
+    with st.form("selection_form"):
+        choice = st.radio("Choose one:", st.session_state.topic_options)
+        
+        submit_selection = st.form_submit_button("Lock in Strategy & Generate")
+        
+        if submit_selection:
+            st.session_state.selected_topic = choice
+            st.session_state.stage = 'SCREEN_4_GENERATING'
+            st.rerun()
 
-# --- SCREEN 4: GENERATION & REVEAL ---
+# --- SCREEN 4: GENERATION ---
 elif st.session_state.stage == 'SCREEN_4_GENERATING':
     st.markdown("### 🏗️ Building your 7-Day Content System...")
-    st_lottie(load_lottiefile(FoodServed.json), height=200, key="delivering")
+    st_lottie(load_lottiefile(FoodServed.json), height=200, key="delivering_final")
+    st.info("Gemini is creating your strategy... drafting scripts... and polishing hooks...")
     
     # Full Generation
     full_content = generate_7_day_plan(st.session_state.selected_topic, st.session_state.user_data)
     st.session_state.final_content = full_content
     
     # Parse into days (Simple split by delimiter)
-    # Note: This relies on the AI following the instruction "--- DAY X ---"
-    # We will store it as a list for the reveal mechanic
-    days = full_content.split("--- DAY")
-    # Clean up the split
-    st.session_state.day_content = ["Day " + d for d in days if len(d) > 20] 
+    # We split by "--- DAY" to separate the days. 
+    # The first part [0] will likely be the "How To Guide" or Intro.
+    content_parts = full_content.split("--- DAY")
+    
+    # Store parts in session state
+    st.session_state.intro_content = content_parts[0] if len(content_parts) > 0 else ""
+    st.session_state.daily_content = []
+    
+    # Re-add the "Day X" label to the split parts
+    for i, part in enumerate(content_parts[1:]):
+        day_num = i + 1
+        st.session_state.daily_content.append(f"**Day {day_num}**\n\n" + part)
     
     st.session_state.day_revealed = 1
     st.session_state.stage = 'SCREEN_5_RESULT'
     st.rerun()
 
-# --- SCREEN 5: FINAL DASHBOARD ---
+# --- SCREEN 5: FINAL DASHBOARD (The Reveal) ---
 elif st.session_state.stage == 'SCREEN_5_RESULT':
     st.balloons()
     st.markdown("## 🎉 You are all set to rule the week!")
     st.success("Your 7-Day Series is ready. Click below to reveal each day.")
     
-    # Reveal Mechanism
+    # 1. Show Intro/Guide First
+    with st.expander("📘 READ FIRST: Your How-To Guide", expanded=False):
+        st.markdown(st.session_state.intro_content)
+    
+    # 2. Reveal Mechanism
+    # We only show days up to the 'day_revealed' counter
     for i in range(st.session_state.day_revealed):
-        if i < len(st.session_state.day_content):
-            day_text = st.session_state.day_content[i]
-            # Extract title if possible, or just use generic Day X
+        if i < len(st.session_state.daily_content):
+            day_text = st.session_state.daily_content[i]
+            # We use expanders for each day
             with st.expander(f"📅 Content for Day {i+1}", expanded=True):
                 st.markdown(day_text)
     
-    # The "Next Day" Button logic
-    if st.session_state.day_revealed < len(st.session_state.day_content):
+    # 3. The "Next Day" Button
+    # Only show if there are more days to reveal
+    if st.session_state.day_revealed < len(st.session_state.daily_content):
         if st.button("👇 Generate Next Day"):
             st.session_state.day_revealed += 1
             st.rerun()
@@ -366,7 +425,8 @@ elif st.session_state.stage == 'SCREEN_5_RESULT':
 
     st.markdown("---")
     
-    # Single File Download
+    # 4. Single File Download
+    # This downloads the original full text returned by the LLM
     st.download_button(
         label="📥 Download Complete 7-Day Plan (Text File)",
         data=st.session_state.final_content,
